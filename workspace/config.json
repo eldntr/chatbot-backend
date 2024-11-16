@@ -1,0 +1,9 @@
+{
+    "model_type": "llama",
+    "max_position_embeddings": 4096,
+    "hidden_size": 4096,
+    "num_attention_heads": 32,
+    "num_hidden_layers": 32,
+    "bos_token_id": 1,
+    "eos_token_id": 2
+}
