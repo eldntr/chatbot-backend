@@ -4,12 +4,13 @@ from auth import auth_bp
 from journal import journal_bp
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
 from chatbot import chatbot_bp
+from recommendation import recommendation_bp
 
 app = Flask(__name__)
 app.register_blueprint(auth_bp)
 app.register_blueprint(journal_bp, url_prefix='/journal')
 app.register_blueprint(chatbot_bp, url_prefix='/chatbot')
-
+app.register_blueprint(recommendation_bp, url_prefix='/recommendation')
 
 client = MongoClient('mongo', 27017)  # 'mongo' adalah nama layanan di docker-compose.yml
 db = client['chat_db']

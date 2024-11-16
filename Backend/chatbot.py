@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from pymongo import MongoClient
 import uuid
 from datetime import datetime
+from recommendation import recommendations
 
 chatbot_bp = Blueprint('chatbot', __name__)
 
@@ -20,6 +21,7 @@ def create_session():
 @chatbot_bp.route('/chat/<session_id>', methods=['POST'])
 def chat(session_id):
     user_input = request.json.get('message')
+    username = request.json.get('username')
     
     session_data = sessions_collection.find_one({'session_id': session_id})
     if not session_data:
@@ -36,6 +38,21 @@ def chat(session_id):
         'message': bot_response,
         'timestamp': datetime.utcnow().isoformat()
     })
+    
+    # Include recommendations at the end of the chat session
+    if user_input.lower() == "end":
+        session_data['conversation'].append({
+            'role': 'Bot',
+            'message': 'Here are some recommendations:',
+            'timestamp': datetime.utcnow().isoformat()
+        })
+        for rec in recommendations:
+            if rec['username'] == username and rec['chat_session'] == session_id:
+                session_data['conversation'].append({
+                    'role': 'Bot',
+                    'message': f"Activity: {rec['activity']}, Duration: {rec['duration']}, Date: {rec['date']}, Approval: {rec['approval']}",
+                    'timestamp': datetime.utcnow().isoformat()
+                })
     
     sessions_collection.update_one({'session_id': session_id}, {'$set': session_data}, upsert=True)
     
