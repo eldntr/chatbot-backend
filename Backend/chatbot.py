@@ -3,6 +3,12 @@ from pymongo import MongoClient
 import uuid
 from datetime import datetime
 from recommendation import recommendations
+import requests
+import json
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
 
 chatbot_bp = Blueprint('chatbot', __name__)
 
@@ -10,6 +16,41 @@ chatbot_bp = Blueprint('chatbot', __name__)
 client = MongoClient('mongo', 27017)  # 'mongo' is the service name in docker-compose.yml
 db = client['chat_db']
 sessions_collection = db['sessions']
+
+OPENROUTER_API_KEY = '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'
+YOUR_SITE_URL = 'http://example.com'
+YOUR_APP_NAME = 'ChatbotApp'
+
+def get_bot_response(user_input, conversation_history, language="en"):
+    messages = [{"role": "system", "content": "You are a helpful assistant."}]
+    for message in conversation_history:
+        role = message['role'].lower()
+        if role == 'bot':
+            role = 'assistant'
+        messages.append({"role": role, "content": message['message']})
+    messages.append({"role": "user", "content": user_input})
+    
+    logging.debug(f"Sending messages to API: {messages}")
+    
+    response = requests.post(
+        url="https://openrouter.ai/api/v1/chat/completions",
+        headers={
+            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+            "HTTP-Referer": f"{YOUR_SITE_URL}",
+            "X-Title": f"{YOUR_APP_NAME}",
+        },
+        data=json.dumps({
+            "model": "openai/gpt-3.5-turbo",
+            "messages": messages,
+            "language": language
+        })
+    )
+    response_data = response.json()
+    logging.debug(f"API response: {response_data}")
+    if 'choices' in response_data and response_data['choices']:
+        return response_data['choices'][0]['message']['content']
+    else:
+        return "Maaf, saya tidak bisa memproses permintaan Anda."
 
 @chatbot_bp.route('/create_session', methods=['POST'])
 def create_session():
@@ -32,12 +73,18 @@ def chat(session_id):
         'message': user_input,
         'timestamp': datetime.utcnow().isoformat(),
     })
-    bot_response = "ini response dari bot"
+    
+    bot_response = get_bot_response(user_input, session_data['conversation'])
+    
     session_data['conversation'].append({
         'role': 'Bot',
         'message': bot_response,
         'timestamp': datetime.utcnow().isoformat()
     })
+    
+    # Generate a conclusion based on the conversation in Indonesian
+    conclusion = get_bot_response("Ringkas percakapan ini", session_data['conversation'], language="id")
+    session_data['conclusion'] = conclusion
     
     # Include recommendations at the end of the chat session
     if user_input.lower() == "end":
@@ -56,7 +103,7 @@ def chat(session_id):
     
     sessions_collection.update_one({'session_id': session_id}, {'$set': session_data}, upsert=True)
     
-    return jsonify({'response': bot_response})
+    return jsonify({'response': bot_response, 'conclusion': conclusion})
 
 @chatbot_bp.route('/history/<session_id>', methods=['GET'])
 def history(session_id):
