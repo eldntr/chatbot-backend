@@ -30,7 +30,7 @@ def chat(session_id):
     session_data['conversation'].append({
         'role': 'User',
         'message': user_input,
-        'timestamp': datetime.utcnow().isoformat()
+        'timestamp': datetime.utcnow().isoformat(),
     })
     bot_response = "ini response dari bot"
     session_data['conversation'].append({
@@ -83,6 +83,20 @@ def search_sessions():
         return jsonify({'message': 'No sessions found for this user'}), 404
     
     return jsonify({'session_ids': session_ids}), 200
+
+@chatbot_bp.route('/edit_conclusion/<session_id>', methods=['PUT'])
+def edit_conclusion(session_id):
+    new_conclusion = request.json.get('conclusion')
+    
+    result = sessions_collection.update_one(
+        {'session_id': session_id},
+        {'$set': {'conclusion': new_conclusion}}
+    )
+    
+    if result.matched_count == 0:
+        return jsonify({'message': 'Session not found'}), 404
+    
+    return jsonify({'message': 'Conclusion updated successfully'}), 200
 
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0')
