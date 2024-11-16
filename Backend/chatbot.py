@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from pymongo import MongoClient
 import uuid
+from datetime import datetime
 
 chatbot_bp = Blueprint('chatbot', __name__)
 
@@ -12,7 +13,7 @@ sessions_collection = db['sessions']
 @chatbot_bp.route('/create_session', methods=['POST'])
 def create_session():
     session_id = str(uuid.uuid4())
-    session_data = {'session_id': session_id, 'conversation': ""}
+    session_data = {'session_id': session_id, 'conversation': [], 'conclusion': None}
     sessions_collection.insert_one(session_data)
     return jsonify({'session_id': session_id}), 201
 
@@ -24,9 +25,17 @@ def chat(session_id):
     if not session_data:
         return jsonify({'message': 'Session not found'}), 404
     
-    session_data['conversation'] += f"User: {user_input}\n"
+    session_data['conversation'].append({
+        'role': 'User',
+        'message': user_input,
+        'timestamp': datetime.utcnow().isoformat()
+    })
     bot_response = "ini response dari bot"
-    session_data['conversation'] += f"Bot: {bot_response}\n"
+    session_data['conversation'].append({
+        'role': 'Bot',
+        'message': bot_response,
+        'timestamp': datetime.utcnow().isoformat()
+    })
     
     sessions_collection.update_one({'session_id': session_id}, {'$set': session_data}, upsert=True)
     
@@ -38,7 +47,7 @@ def history(session_id):
     if not session_data:
         return jsonify({'conversation': ''}), 404
     
-    return jsonify({'conversation': session_data['conversation']}), 200
+    return jsonify({'conversation': session_data['conversation'], 'conclusion': session_data['conclusion']}), 200
 
 @chatbot_bp.route('/delete/<session_id>', methods=['DELETE'])
 def delete_session(session_id):
@@ -50,7 +59,7 @@ def delete_session(session_id):
 @chatbot_bp.route('/search_sessions', methods=['GET'])
 def search_sessions():
     user_id = request.args.get('user_id')
-    sessions = sessions_collection.find({'conversation': {'$regex': f"User: {user_id}"}})
+    sessions = sessions_collection.find({'conversation.role': 'User', 'conversation.message': {'$regex': user_id}})
     session_ids = [session['session_id'] for session in sessions]
     
     if not session_ids:
