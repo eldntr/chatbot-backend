@@ -17,7 +17,7 @@ client = MongoClient('mongo', 27017)  # 'mongo' is the service name in docker-co
 db = client['chat_db']
 sessions_collection = db['sessions']
 
-OPENROUTER_API_KEY = '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'
+OPENROUTER_API_KEY = 'OPEN-ROUTER-KEY'
 YOUR_SITE_URL = 'http://example.com'
 YOUR_APP_NAME = 'ChatbotApp'
 
